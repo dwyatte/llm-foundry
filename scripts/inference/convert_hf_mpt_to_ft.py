@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Convert MPT model checkpoint to FT format.
+"""Convert gpt model checkpoint to FT format.
 
 It's a modified version of
 https://github.com/NVIDIA/FasterTransformer/blob/main/examples/pytorch/gpt/utils/huggingface_gpt_convert.py
@@ -44,7 +44,7 @@ def write_zero_bias(weight_name: str, weight_file_path: str,
                     bias_shape: List[int]) -> None:
     """Write zeros for bias.
 
-    MPT model might not have bias while FT expects bias.
+    gpt model might not have bias while FT expects bias.
 
     Args:
         weight_name (str): Name of the weight tensor.
@@ -64,7 +64,7 @@ def write_zero_bias(weight_name: str, weight_file_path: str,
 def convert_weight_to_ft_each(save_dir: str, infer_gpu_num: int,
                               tensor_name: str, config: Dict[str, Any],
                               data: np.ndarray):
-    """Convert an MPT checkpoint to a FasterTransformer compatible format.
+    """Convert an gpt checkpoint to a FasterTransformer compatible format.
 
     Args:
         save_dir (str): Path of the directory to save the weight in FT format. The directory must already exist.
@@ -172,16 +172,16 @@ def convert_weight_to_ft_each(save_dir: str, infer_gpu_num: int,
         raise RuntimeError(f'Tensor with name {tensor_name} is not handled')
 
 
-def convert_mpt_to_ft(model_name_or_path: str,
+def convert_gpt_to_ft(model_name_or_path: str,
                       output_dir: str,
                       infer_gpu_num: int = 1,
                       weight_data_type: str = 'fp32',
                       force: bool = False) -> None:
-    """Convert an MPT checkpoint to a FasterTransformer compatible format.
+    """Convert an gpt checkpoint to a FasterTransformer compatible format.
 
     Args:
-        model_name_or_path (str): The HF hub name of the model (e.g., mosaicml/mpt-7b) or the path of a directory
-            containing an MPT checkpoint in a local dir.
+        model_name_or_path (str): The HF hub name of the model (e.g., mosaicml/gpt-7b) or the path of a directory
+            containing an gpt checkpoint in a local dir.
         output_dir (str): Path of the directory to save the checkpoint in FT format. The directory must not already exist.
         infer_gpu_num (int): The number of gpus you are planning to use for inference.
         weight_data_type (str): Data type of the weights in the input checkpoint.
@@ -204,37 +204,37 @@ def convert_mpt_to_ft(model_name_or_path: str,
     hf_config = vars(model.config)
 
     config = configparser.ConfigParser()
-    config['mpt'] = {}
+    config['gpt'] = {}
     try:
-        config['mpt']['model_name'] = 'mpt' if hf_config[
+        config['gpt']['model_name'] = 'gpt' if hf_config[
             '_name_or_path'] == '' else hf_config['_name_or_path']
-        config['mpt']['head_num'] = str(hf_config['n_heads'])
+        config['gpt']['head_num'] = str(hf_config['n_heads'])
         n_embd = hf_config['d_model']
-        config['mpt']['size_per_head'] = str(n_embd // hf_config['n_heads'])
-        config['mpt']['inter_size'] = str(n_embd * hf_config['expansion_ratio'])
-        config['mpt']['max_pos_seq_len'] = str(hf_config['max_seq_len'])
-        config['mpt']['num_layer'] = str(hf_config['n_layers'])
-        config['mpt']['vocab_size'] = str(hf_config['vocab_size'])
-        config['mpt']['start_id'] = str(
+        config['gpt']['size_per_head'] = str(n_embd // hf_config['n_heads'])
+        config['gpt']['inter_size'] = str(n_embd * hf_config['expansion_ratio'])
+        config['gpt']['max_pos_seq_len'] = str(hf_config['max_seq_len'])
+        config['gpt']['num_layer'] = str(hf_config['n_layers'])
+        config['gpt']['vocab_size'] = str(hf_config['vocab_size'])
+        config['gpt']['start_id'] = str(
             hf_config['bos_token_id']
         ) if hf_config['bos_token_id'] != None else str(tokenizer.bos_token_id)
-        config['mpt']['end_id'] = str(
+        config['gpt']['end_id'] = str(
             hf_config['eos_token_id']
         ) if hf_config['eos_token_id'] != None else str(tokenizer.eos_token_id)
-        config['mpt']['weight_data_type'] = weight_data_type
-        config['mpt']['tensor_para_size'] = str(infer_gpu_num)
+        config['gpt']['weight_data_type'] = weight_data_type
+        config['gpt']['tensor_para_size'] = str(infer_gpu_num)
         # nn.LayerNorm default eps is 1e-5
-        config['mpt']['layernorm_eps'] = str(1e-5)
+        config['gpt']['layernorm_eps'] = str(1e-5)
         if hf_config['attn_config']['alibi']:
-            config['mpt']['has_positional_encoding'] = str(False)
-            config['mpt']['use_attention_linear_bias'] = str(True)
+            config['gpt']['has_positional_encoding'] = str(False)
+            config['gpt']['use_attention_linear_bias'] = str(True)
         if hf_config['attn_config']['clip_qkv'] and not force:
             raise RuntimeError(
-                'clip_qkv is enabled for this MPT model. This may not work as expected in FT. Use --force to force a conversion.'
+                'clip_qkv is enabled for this gpt model. This may not work as expected in FT. Use --force to force a conversion.'
             )
         if hf_config['attn_config']['qk_ln'] and not force:
             raise RuntimeError(
-                'qk_ln is enabled for this MPT model. This may not work as expected in FT. Use --force to force a conversion.'
+                'qk_ln is enabled for this gpt model. This may not work as expected in FT. Use --force to force a conversion.'
             )
 
         with open(os.path.join(save_dir, 'config.ini'), 'w') as configfile:
@@ -292,11 +292,11 @@ def convert_mpt_to_ft(model_name_or_path: str,
         elif name == 'transformer.lm_head.weight':
             data.tofile(os.path.join(save_dir, 'model.lm_head.weight.bin'))
         else:
-            for mpt_pattern, ft_pattern in param_remapping.items():
-                if name.find(mpt_pattern) != -1:
+            for gpt_pattern, ft_pattern in param_remapping.items():
+                if name.find(gpt_pattern) != -1:
                     new_name = name.replace('transformer.blocks.',
                                             'layers.').replace(
-                                                mpt_pattern, ft_pattern)
+                                                gpt_pattern, ft_pattern)
                     convert_weight_to_ft_each(save_dir, infer_gpu_num, new_name,
                                               hf_config, data)
 
@@ -314,7 +314,7 @@ if __name__ == '__main__':
         '-i',
         type=str,
         help=
-        'HF hub Model name (e.g., mosaicml/mpt-7b) or local dir path to load checkpoint from',
+        'HF hub Model name (e.g., mosaicml/gpt-7b) or local dir path to load checkpoint from',
         required=True)
     parser.add_argument('--infer_gpu_num',
                         '-i_g',
@@ -339,5 +339,5 @@ if __name__ == '__main__':
         print('{}: {}'.format(key, vars(args)[key]))
     print('========================================')
 
-    convert_mpt_to_ft(args.name_or_dir, args.save_dir, args.infer_gpu_num,
+    convert_gpt_to_ft(args.name_or_dir, args.save_dir, args.infer_gpu_num,
                       args.weight_data_type, args.force)
